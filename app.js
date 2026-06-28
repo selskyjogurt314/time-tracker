@@ -1,7 +1,6 @@
 // --- DATA ---
 let activities = JSON.parse(localStorage.getItem('activities')) || [];
 let activeActivity = null;
-let startTime = null;
 let timerInterval = null;
 
 // --- ELEMENTY ---
@@ -30,6 +29,9 @@ function checkDayReset() {
     activities = activities.map(a => ({ ...a, totalSeconds: 0 }));
     saveActivities();
     localStorage.setItem('lastOpen', today);
+    // Reset i uložený start
+    localStorage.removeItem('activeActivityIndex');
+    localStorage.removeItem('activityStartTime');
   }
 }
 
@@ -60,25 +62,24 @@ function formatTime(seconds) {
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
 }
 
-function startTimer() {
-  stopTimer();
-  startTime = Date.now();
+function getElapsedSeconds() {
+  const startTime = localStorage.getItem('activityStartTime');
+  if (!startTime) return 0;
+  return Math.floor((Date.now() - parseInt(startTime)) / 1000);
+}
+
+function startTimerDisplay() {
+  stopTimerDisplay();
   timerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    currentTimer.textContent = formatTime(elapsed);
+    currentTimer.textContent = formatTime(getElapsedSeconds());
   }, 1000);
 }
 
-function stopTimer() {
+function stopTimerDisplay() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
   }
-}
-
-function getElapsedSeconds() {
-  if (startTime === null) return 0;
-  return Math.floor((Date.now() - startTime) / 1000);
 }
 
 // --- AKTIVITY ---
@@ -108,29 +109,55 @@ function addActivity() {
 }
 
 function startActivity(index) {
+  // Uložíme čas předchozí aktivity
   if (activeActivity !== null) {
     activities[activeActivity].totalSeconds += getElapsedSeconds();
     saveActivities();
   }
+
+  // Uložíme nový start do localStorage
   activeActivity = index;
+  localStorage.setItem('activeActivityIndex', index);
+  localStorage.setItem('activityStartTime', Date.now().toString());
+
   currentName.textContent = activities[index].name;
   currentTimer.textContent = '00:00:00';
-  startTimer();
+  startTimerDisplay();
   renderActivities();
+}
+
+function restoreSession() {
+  const savedIndex = localStorage.getItem('activeActivityIndex');
+  const savedStart = localStorage.getItem('activityStartTime');
+
+  if (savedIndex !== null && savedStart !== null) {
+    activeActivity = parseInt(savedIndex);
+    currentName.textContent = activities[activeActivity].name;
+    currentTimer.textContent = formatTime(getElapsedSeconds());
+    startTimerDisplay();
+  }
 }
 
 // --- PŘEHLED ---
 function renderSummary() {
   summaryList.innerHTML = '';
 
-  const total = activities.reduce((sum, a) => sum + a.totalSeconds, 0);
+  // Zahrneme i aktuálně běžící aktivitu
+  const activitiesWithCurrent = activities.map((a, i) => {
+    if (i === activeActivity) {
+      return { ...a, totalSeconds: a.totalSeconds + getElapsedSeconds() };
+    }
+    return a;
+  });
+
+  const total = activitiesWithCurrent.reduce((sum, a) => sum + a.totalSeconds, 0);
 
   if (total === 0) {
     summaryList.innerHTML = '<p style="color:#8e8e93">Dnes ještě žádná data.</p>';
     return;
   }
 
-  const sorted = [...activities]
+  const sorted = [...activitiesWithCurrent]
     .filter(a => a.totalSeconds > 0)
     .sort((a, b) => b.totalSeconds - a.totalSeconds);
 
@@ -156,4 +183,5 @@ addActivityBtn.addEventListener('click', addActivity);
 
 // --- START ---
 checkDayReset();
+restoreSession();
 renderActivities();
