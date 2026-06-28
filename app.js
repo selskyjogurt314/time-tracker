@@ -90,12 +90,23 @@ function saveActivities() {
 function renderActivities() {
   activityList.innerHTML = '';
   activities.forEach((activity, index) => {
+    const row = document.createElement('div');
+    row.classList.add('activity-row');
+
     const btn = document.createElement('button');
     btn.classList.add('activity-btn');
     btn.textContent = activity.name;
     if (activeActivity === index) btn.classList.add('active');
     btn.addEventListener('click', () => startActivity(index));
-    activityList.appendChild(btn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.classList.add('delete-btn');
+    deleteBtn.textContent = '✕';
+    deleteBtn.addEventListener('click', () => deleteActivity(index));
+
+    row.appendChild(btn);
+    row.appendChild(deleteBtn);
+    activityList.appendChild(row);
   });
 }
 
