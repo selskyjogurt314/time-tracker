@@ -119,6 +119,43 @@ function addActivity() {
   renderActivities();
 }
 
+function deleteActivity(index) {
+  const wasMazingActive = activeActivity === index;
+
+  // Nejdříve opravíme index aktivní aktivity
+  if (activeActivity !== null && index < activeActivity) {
+    activeActivity--;
+    localStorage.setItem('activeActivityIndex', activeActivity);
+  }
+
+  // Až teď smažeme aktivitu ze seznamu
+  activities.splice(index, 1);
+  saveActivities();
+
+  // Pokud jsme mazali právě běžící aktivitu, zastavíme timer
+  if (wasMazingActive) {
+    stopTimerDisplay();
+    activeActivity = null;
+    localStorage.removeItem('activeActivityIndex');
+    localStorage.removeItem('activityStartTime');
+    currentName.textContent = 'Žádná aktivita';
+    currentTimer.textContent = '00:00:00';
+  }
+
+  renderActivities();
+}
+
+  // Pokud mažeme aktivitu před aktivní, opravíme index
+  if (activeActivity !== null && index < activeActivity) {
+    activeActivity--;
+    localStorage.setItem('activeActivityIndex', activeActivity);
+  }
+
+  activities.splice(index, 1);
+  saveActivities();
+  renderActivities();
+}
+
 function startActivity(index) {
   // Uložíme čas předchozí aktivity
   if (activeActivity !== null) {
