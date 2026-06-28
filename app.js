@@ -29,7 +29,6 @@ function checkDayReset() {
     activities = activities.map(a => ({ ...a, totalSeconds: 0 }));
     saveActivities();
     localStorage.setItem('lastOpen', today);
-    // Reset i uložený start
     localStorage.removeItem('activeActivityIndex');
     localStorage.removeItem('activityStartTime');
   }
@@ -122,17 +121,14 @@ function addActivity() {
 function deleteActivity(index) {
   const wasMazingActive = activeActivity === index;
 
-  // Nejdříve opravíme index aktivní aktivity
   if (activeActivity !== null && index < activeActivity) {
     activeActivity--;
     localStorage.setItem('activeActivityIndex', activeActivity);
   }
 
-  // Až teď smažeme aktivitu ze seznamu
   activities.splice(index, 1);
   saveActivities();
 
-  // Pokud jsme mazali právě běžící aktivitu, zastavíme timer
   if (wasMazingActive) {
     stopTimerDisplay();
     activeActivity = null;
@@ -145,25 +141,12 @@ function deleteActivity(index) {
   renderActivities();
 }
 
-  // Pokud mažeme aktivitu před aktivní, opravíme index
-  if (activeActivity !== null && index < activeActivity) {
-    activeActivity--;
-    localStorage.setItem('activeActivityIndex', activeActivity);
-  }
-
-  activities.splice(index, 1);
-  saveActivities();
-  renderActivities();
-}
-
 function startActivity(index) {
-  // Uložíme čas předchozí aktivity
   if (activeActivity !== null) {
     activities[activeActivity].totalSeconds += getElapsedSeconds();
     saveActivities();
   }
 
-  // Uložíme nový start do localStorage
   activeActivity = index;
   localStorage.setItem('activeActivityIndex', index);
   localStorage.setItem('activityStartTime', Date.now().toString());
@@ -190,7 +173,6 @@ function restoreSession() {
 function renderSummary() {
   summaryList.innerHTML = '';
 
-  // Zahrneme i aktuálně běžící aktivitu
   const activitiesWithCurrent = activities.map((a, i) => {
     if (i === activeActivity) {
       return { ...a, totalSeconds: a.totalSeconds + getElapsedSeconds() };
