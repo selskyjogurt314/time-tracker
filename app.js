@@ -1,5 +1,6 @@
 // --- DATA ---
 let activities = JSON.parse(localStorage.getItem('activities')) || [];
+let history = JSON.parse(localStorage.getItem('history')) || [];
 let activeActivity = null;
 let timerInterval = null;
 
@@ -10,6 +11,7 @@ const addActivityBtn = document.getElementById('add-activity-btn');
 const currentName = document.getElementById('current-name');
 const currentTimer = document.getElementById('current-timer');
 const summaryList = document.getElementById('summary-list');
+const timeline = document.getElementById('timeline');
 const screenTracker = document.getElementById('screen-tracker');
 const screenSummary = document.getElementById('screen-summary');
 const navTracker = document.getElementById('nav-tracker');
@@ -28,6 +30,8 @@ function checkDayReset() {
   if (lastOpen !== today) {
     activities = activities.map(a => ({ ...a, totalSeconds: 0 }));
     saveActivities();
+    history = [];
+    saveHistory();
     localStorage.setItem('lastOpen', today);
     localStorage.removeItem('activeActivityIndex');
     localStorage.removeItem('activityStartTime');
@@ -49,6 +53,7 @@ function showScreen(screen) {
     screenSummary.classList.remove('hidden');
     navTracker.classList.remove('active');
     navSummary.classList.add('active');
+    renderTimeline();
     renderSummary();
   }
 }
@@ -59,6 +64,13 @@ function formatTime(seconds) {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function formatClock(timestamp) {
+  const d = new Date(timestamp);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
 }
 
 function getElapsedSeconds() {
@@ -79,6 +91,22 @@ function stopTimerDisplay() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+}
+
+// --- HISTORIE ---
+function saveHistory() {
+  localStorage.setItem('history', JSON.stringify(history));
+}
+
+// Barvy pro aktivity podle indexu
+const COLORS = [
+  '#007aff', '#34c759', '#ff9500', '#ff3b30',
+  '#af52de', '#5ac8fa', '#ffcc00', '#ff2d55'
+];
+
+function getColor(activityName) {
+  const index = activities.findIndex(a => a.name === activityName);
+  return COLORS[index % COLORS.length];
 }
 
 // --- AKTIVITY ---
@@ -142,11 +170,23 @@ function deleteActivity(index) {
 }
 
 function startActivity(index) {
-  if (activeActivity !== null) {
-    activities[activeActivity].totalSeconds += getElapsedSeconds();
+  const startTime = localStorage.getItem('activityStartTime');
+
+  // Uložíme předchozí aktivitu do historie
+  if (activeActivity !== null && startTime) {
+    const elapsed = getElapsedSeconds();
+    activities[activeActivity].totalSeconds += elapsed;
     saveActivities();
+
+    history.push({
+      name: activities[activeActivity].name,
+      start: parseInt(startTime),
+      end: Date.now()
+    });
+    saveHistory();
   }
 
+  // Spustíme novou aktivitu
   activeActivity = index;
   localStorage.setItem('activeActivityIndex', index);
   localStorage.setItem('activityStartTime', Date.now().toString());
@@ -167,6 +207,45 @@ function restoreSession() {
     currentTimer.textContent = formatTime(getElapsedSeconds());
     startTimerDisplay();
   }
+}
+
+// --- ČASOVÁ OSA ---
+function renderTimeline() {
+  timeline.innerHTML = '';
+
+  // Sestavíme položky – historie + případně běžící aktivita
+  const items = [...history];
+  if (activeActivity !== null) {
+    const startTime = localStorage.getItem('activityStartTime');
+    if (startTime) {
+      items.push({
+        name: activities[activeActivity].name,
+        start: parseInt(startTime),
+        end: null // stále běží
+      });
+    }
+  }
+
+  if (items.length === 0) {
+    timeline.innerHTML = '<p style="color:#8e8e93">Dnes ještě žádná data.</p>';
+    return;
+  }
+
+  items.forEach(item => {
+    const color = getColor(item.name);
+    const endLabel = item.end ? formatClock(item.end) : 'nyní';
+
+    const el = document.createElement('div');
+    el.classList.add('timeline-item');
+    el.innerHTML = `
+      <div class="timeline-dot" style="background-color: ${color}"></div>
+      <div class="timeline-info">
+        <span class="timeline-name">${item.name}</span>
+        <span class="timeline-time">${formatClock(item.start)} – ${endLabel}</span>
+      </div>
+    `;
+    timeline.appendChild(el);
+  });
 }
 
 // --- PŘEHLED ---
@@ -193,15 +272,16 @@ function renderSummary() {
 
   sorted.forEach(activity => {
     const percent = Math.round((activity.totalSeconds / total) * 100);
+    const color = getColor(activity.name);
     const item = document.createElement('div');
     item.classList.add('summary-item-wrap');
     item.innerHTML = `
       <div class="summary-item">
         <span class="summary-item-name">${activity.name}</span>
-        <span class="summary-item-time">${formatTime(activity.totalSeconds)}</span>
+        <span class="summary-item-time" style="color: ${color}">${formatTime(activity.totalSeconds)}</span>
       </div>
       <div class="summary-bar-wrap">
-        <div class="summary-bar" style="width: ${percent}%"></div>
+        <div class="summary-bar" style="width: ${percent}%; background-color: ${color}"></div>
       </div>
     `;
     summaryList.appendChild(item);
